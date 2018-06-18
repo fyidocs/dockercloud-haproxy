@@ -1,6 +1,6 @@
 import re
 
-from haproxy.config import HEALTH_CHECK, HTTP_BASIC_AUTH, EXTRA_ROUTE_SETTINGS
+from haproxy.config import HEALTH_CHECK, HTTP_CHECK, HTTP_BASIC_AUTH, EXTRA_ROUTE_SETTINGS
 from haproxy.utils import get_service_attribute
 
 
@@ -10,7 +10,8 @@ def get_backend_section(details, routes, vhosts, service_alias, routes_added):
     backend_websocket_setting = get_websocket_setting(vhosts, service_alias)
     backend.extend(backend_websocket_setting)
 
-    backend_settings, is_sticky = get_backend_settings(details, service_alias, HTTP_BASIC_AUTH)
+    backend_settings, is_sticky = get_backend_settings(details, service_alias, HTTP_BASIC_AUTH, HTTP_CHECK)
+    print(backend_settings)
     backend.extend(backend_settings)
 
     route_health_check = get_route_health_check(details, service_alias, HEALTH_CHECK)
@@ -71,14 +72,14 @@ def get_websocket_setting(vhosts, service_alias):
     return websocket_setting
 
 
-def get_backend_settings(details, service_alias, basic_auth):
+def get_backend_settings(details, service_alias, basic_auth, http_check):
     backend_settings = []
 
     sticky_setting, is_sticky = get_sticky_setting(details, service_alias)
     backend_settings.extend(sticky_setting)
     backend_settings.extend(get_balance_setting(details, service_alias))
     backend_settings.extend(get_force_ssl_setting(details, service_alias))
-    backend_settings.extend(get_http_check_setting(details, service_alias))
+    backend_settings.extend(get_http_check_setting(details, service_alias, http_check))
     backend_settings.extend(get_gzip_compression_setting(details, service_alias))
     backend_settings.extend(get_hsts_max_age_setting(details, service_alias))
     backend_settings.extend(get_options_setting(details, service_alias))
@@ -116,10 +117,13 @@ def get_force_ssl_setting(details, service_alias):
     return setting
 
 
-def get_http_check_setting(details, service_alias):
+def get_http_check_setting(details, service_alias, http_check):
     setting = []
-    http_check = get_service_attribute(details, "http_check", service_alias)
-    if http_check:
+    if not http_check:
+        service_http_check = get_service_attribute(details, "http_check", service_alias)
+        if http_check:
+            setting.append("option httpchk %s" % service_http_check)
+    else:
         setting.append("option httpchk %s" % http_check)
     return setting
 
